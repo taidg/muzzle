@@ -11,3 +11,11 @@ Run make.
       -e, --encrypt    encrypt
       -d, --decrypt    decrypt
       -h, --help       show help
+
+## Example
+
+To encrypt a compress and encrypt a file using xz and muzzle run:
+    cat myfile | xz --compress --stdout - | muzzle --encrypt > myfile.xz.muz
+
+To decrypt and decompress a file run:
+    cat myfile.xz.muz | muzzle --decrypt > myfile.plaintext
