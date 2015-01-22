@@ -1,6 +1,8 @@
 # muzzle
 A command line data encryption tool designed for easy use with data compression tools.
 
+muzzle uses AES encryption in GCM Block Mode to provide authenticated encryption of data.
+
 ## Building
 Run make.
 
