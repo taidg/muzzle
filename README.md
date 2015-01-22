@@ -5,7 +5,7 @@ A command line data encryption tool designed for easy use with data compression 
 Run make.
 
 ## Usage
-muzzle [OPTION]  
-  -e, --encrypt    encrypt
-  -d, --decrypt    decrypt
-  -h, --help       show help
+    muzzle [OPTION]
+      -e, --encrypt    encrypt
+      -d, --decrypt    decrypt
+      -h, --help       show help
