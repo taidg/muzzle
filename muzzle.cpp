@@ -143,10 +143,10 @@ void decryptStdIn() {
 	d.SetKeyWithIV( key, key.size(), iv, IV_SIZE);
 	try {
 		FileSource( std::cin, true,
-					new AuthenticatedDecryptionFilter( d,
-						new FileSink( std::cout),
-						AuthenticatedDecryptionFilter::DEFAULT_FLAGS,
-						12));
+		            new AuthenticatedDecryptionFilter( d,
+		                new FileSink( std::cout),
+		                AuthenticatedDecryptionFilter::DEFAULT_FLAGS,
+		                12));
 	}
 	catch ( HashVerificationFilter::HashVerificationFailed er) {
 		std::cerr << "[muzzle] Verification Failed.";
