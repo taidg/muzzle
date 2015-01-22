@@ -22,4 +22,4 @@ To encrypt a compress and encrypt a file using xz and muzzle run:
 
 To decrypt and decompress a file run:
 
-    cat myfile.xz.muz | muzzle --decrypt > myfile.plaintext
+    cat myfile.xz.muz | muzzle --decrypt | xz --decompress --stdout - > myfile
