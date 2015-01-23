@@ -124,6 +124,9 @@ void encryptStdIn() {
 	FileSource( std::cin, true,
 	            new AuthenticatedEncryptionFilter( e,
 	                new FileSink( std::cout), false, 12));
+
+	// wipe passphrase from memory
+	memset( pass, 0, strlen(pass));
 }
 
 void decryptStdIn() {
@@ -155,7 +158,12 @@ void decryptStdIn() {
 	}
 	catch ( HashVerificationFilter::HashVerificationFailed er) {
 		std::cerr << "[muzzle] Verification Failed.";
+		// wipe passphrase from memory
+		memset( pass, 0, strlen(pass));
 		exit(EXIT_FAILURE);
 	}
+
+	// wipe passphrase from memory
+	memset( pass, 0, strlen(pass));
 }
 
