@@ -41,6 +41,11 @@ void decryptStdIn();
 
 int main ( int argc, const char* argv[]) {
 
+	if( argc < 2 ){
+		printUsage();
+		return EXIT_FAILURE;
+	}
+
 	if( !strcmp(argv[1], "-e") || !strcmp(argv[1], "--encrypt"))
 		encryptStdIn();
 	else if ( !strcmp(argv[1], "-d") || !strcmp(argv[1], "--decrypt"))
