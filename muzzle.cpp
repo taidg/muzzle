@@ -92,10 +92,9 @@ void getPass( char *pass ) {
 
 	write(tty, "[muzzle] Password: ", 19);
 	bytesRead = read(tty, pass, MAX_PASS_SIZE);
+	pass[bytesRead - 1 ] = '\0';
 
 	tcsetattr(tty, TCSANOW, &tcOrig);
-
-	pass[bytesRead - 1 ] = '\0';
 }
 
 void encryptStdIn() {
@@ -114,9 +113,7 @@ void encryptStdIn() {
 	hf.Put( (byte *)pass, strlen(pass));
 	hf.MessageEnd();
 
-	for(int i = 0; i < IV_SIZE; ++i) {
-		std::cout << iv[i];
-	}
+	std::cout.write( (char *)iv, IV_SIZE );
 
 	GCM<AES>::Encryption e;
 	e.SetKeyWithIV( key, key.size(), iv, IV_SIZE);
@@ -158,6 +155,7 @@ void decryptStdIn() {
 	}
 	catch ( HashVerificationFilter::HashVerificationFailed er) {
 		std::cerr << "[muzzle] Verification Failed.";
+
 		// wipe passphrase from memory
 		memset( pass, 0, strlen(pass));
 		exit(EXIT_FAILURE);
