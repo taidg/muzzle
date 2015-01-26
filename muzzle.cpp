@@ -13,16 +13,9 @@
  */
 
 #include <iostream>
-#include <string>
-#include <fstream>
-
-#include <cstdlib>
-#include <cstring>
 
 #include <unistd.h>
 #include <termios.h>
-#include <sys/types.h>
-#include <sys/stat.h>
 #include <fcntl.h>
 
 #include <crypto++/osrng.h>
