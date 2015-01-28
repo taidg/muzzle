@@ -33,7 +33,6 @@ void encryptStdIn();
 void decryptStdIn();
 
 int main ( int argc, const char* argv[]) {
-
 	if( argc < 2 ){
 		printUsage();
 		return EXIT_FAILURE;
@@ -106,6 +105,9 @@ void encryptStdIn() {
 	hf.Put( (byte *)pass, strlen(pass));
 	hf.MessageEnd();
 
+	// wipe passphrase from memory
+	memset( pass, 0, strlen(pass));
+
 	std::cout.write( (char *)iv, IV_SIZE );
 
 	GCM<AES>::Encryption e;
@@ -114,9 +116,6 @@ void encryptStdIn() {
 	FileSource( std::cin, true,
 	            new AuthenticatedEncryptionFilter( e,
 	                new FileSink( std::cout), false, 12));
-
-	// wipe passphrase from memory
-	memset( pass, 0, strlen(pass));
 }
 
 void decryptStdIn() {
@@ -137,6 +136,9 @@ void decryptStdIn() {
 	hf.Put( (byte *)pass, strlen(pass));
 	hf.MessageEnd();
 
+	// wipe passphrase from memory
+	memset( pass, 0, strlen(pass));
+
 	GCM<AES>::Decryption d;
 	d.SetKeyWithIV( key, key.size(), iv, IV_SIZE);
 	try {
@@ -149,12 +151,7 @@ void decryptStdIn() {
 	catch ( HashVerificationFilter::HashVerificationFailed er) {
 		std::cerr << "[muzzle] Verification Failed.";
 
-		// wipe passphrase from memory
-		memset( pass, 0, strlen(pass));
 		exit(EXIT_FAILURE);
 	}
-
-	// wipe passphrase from memory
-	memset( pass, 0, strlen(pass));
 }
 
