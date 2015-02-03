@@ -63,7 +63,7 @@ int main(int argc, const char* argv[]) {
 }
 
 void printUsage() {
-  std::cout << "Usage: muzzle [OPTION]" <<std::endl
+  std::cerr << "Usage: muzzle [OPTION]" <<std::endl
             << "  -e, --encrypt      encrypt" <<std::endl
             << "  -d, --decrypt      decrypt" <<std::endl
             << "  -h, --help         give this help" <<std::endl;
@@ -110,7 +110,7 @@ void encryptStdIn() {
   // Create key by hashing IV and password
   SHA256 hash;
   SecByteBlock key(0x00, AES::DEFAULT_KEYLENGTH);
-  HashFilter hf(hash, new ArraySink(key, AES::DEFAULT_KEYLENGTH));  
+  HashFilter hf(hash, new ArraySink(key, AES::DEFAULT_KEYLENGTH));
   hf.Put(iv, IV_SIZE);
   hf.Put((byte *)pass, strlen(pass));
   hf.MessageEnd();
@@ -138,7 +138,7 @@ void decryptStdIn() {
   // Create key by hashing IV and password
   SHA256 hash;
   SecByteBlock key(0x00, AES::DEFAULT_KEYLENGTH);
-  HashFilter hf(hash, new ArraySink(key, AES::DEFAULT_KEYLENGTH));  
+  HashFilter hf(hash, new ArraySink(key, AES::DEFAULT_KEYLENGTH));
   hf.Put(iv, IV_SIZE);
   hf.Put((byte *)pass, strlen(pass));
   hf.MessageEnd();
