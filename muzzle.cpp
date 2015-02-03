@@ -105,14 +105,14 @@ void encryptStdIn() {
   AutoSeededRandomPool rng;
   byte iv[IV_SIZE];
   rng.GenerateBlock(iv, IV_SIZE);
-  std::cout.write((char *)iv, IV_SIZE);
+  std::cout.write(reinterpret_cast<char*>(iv), IV_SIZE);
 
   // Create key by hashing IV and password
   SHA256 hash;
   SecByteBlock key(0x00, AES::DEFAULT_KEYLENGTH);
   HashFilter hf(hash, new ArraySink(key, AES::DEFAULT_KEYLENGTH));
   hf.Put(iv, IV_SIZE);
-  hf.Put((byte *)pass, strlen(pass));
+  hf.Put(reinterpret_cast<byte*>(pass), strlen(pass));
   hf.MessageEnd();
 
   // Wipe passphrase from memory
@@ -140,7 +140,7 @@ void decryptStdIn() {
   SecByteBlock key(0x00, AES::DEFAULT_KEYLENGTH);
   HashFilter hf(hash, new ArraySink(key, AES::DEFAULT_KEYLENGTH));
   hf.Put(iv, IV_SIZE);
-  hf.Put((byte *)pass, strlen(pass));
+  hf.Put(reinterpret_cast<byte*>(pass), strlen(pass));
   hf.MessageEnd();
 
   // Wipe passphrase from memory
