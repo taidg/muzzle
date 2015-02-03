@@ -111,9 +111,9 @@ void encryptStdIn() {
   // Pipe from standard in, encrypt, and pipe to standard out
   GCM<AES>::Encryption e;
   e.SetKeyWithIV(key, key.size(), iv, IV_SIZE);
-  FileSource(std::cin, true,
-      new AuthenticatedEncryptionFilter(e,
-          new FileSink(std::cout), false, 12));
+  FileSource(
+      std::cin, true,
+      new AuthenticatedEncryptionFilter(e, new FileSink(std::cout), false, 12));
 }
 
 void decryptStdIn() {
@@ -142,10 +142,9 @@ void decryptStdIn() {
   d.SetKeyWithIV(key, key.size(), iv, IV_SIZE);
   try {
     FileSource(std::cin, true,
-        new AuthenticatedDecryptionFilter(d,
-            new FileSink(std::cout),
-            AuthenticatedDecryptionFilter::DEFAULT_FLAGS,
-            12));
+        new AuthenticatedDecryptionFilter(
+            d, new FileSink(std::cout),
+            AuthenticatedDecryptionFilter::DEFAULT_FLAGS, 12));
   }
   catch (HashVerificationFilter::HashVerificationFailed er) {
     std::cerr << "[muzzle] Verification Failed.";
