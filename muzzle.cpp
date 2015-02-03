@@ -12,17 +12,27 @@
  * GNU General Public License for more details.
  */
 
+#include <fcntl.h>
+#include <termios.h>
+#include <unistd.h>
 #include <iostream>
 
-#include <unistd.h>
-#include <termios.h>
-#include <fcntl.h>
-
-#include <crypto++/osrng.h>
-#include <crypto++/gcm.h>
 #include <crypto++/files.h>
+#include <crypto++/gcm.h>
+#include <crypto++/osrng.h>
 
-using namespace CryptoPP;
+using CryptoPP::AES;
+using CryptoPP::ArraySink;
+using CryptoPP::AuthenticatedDecryptionFilter;
+using CryptoPP::AuthenticatedEncryptionFilter;
+using CryptoPP::AutoSeededRandomPool;
+using CryptoPP::FileSink;
+using CryptoPP::FileSource;
+using CryptoPP::GCM;
+using CryptoPP::HashFilter;
+using CryptoPP::HashVerificationFilter;
+using CryptoPP::SHA256;
+using CryptoPP::SecByteBlock;
 
 const int MAX_PASS_SIZE = 256;
 const int IV_SIZE = AES::BLOCKSIZE * 16;
