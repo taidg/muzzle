@@ -31,6 +31,7 @@ using CryptoPP::FileSource;
 using CryptoPP::GCM;
 using CryptoPP::HashFilter;
 using CryptoPP::HashVerificationFilter;
+using CryptoPP::Redirector;
 using CryptoPP::SHA256;
 using CryptoPP::SecByteBlock;
 
@@ -91,6 +92,7 @@ void getPass(char *pass) {
   // Get null-terminated password from terminal
   write(tty, "[muzzle] Password: ", 19);
   int bytesRead = read(tty, pass, MAX_PASS_SIZE);
+  assert(bytesRead > 0);
   pass[bytesRead - 1 ] = '\0';
 
   // Restore original terminal config
@@ -150,13 +152,12 @@ void decryptStdIn() {
   // Error if Authentication fails
   GCM<AES>::Decryption d;
   d.SetKeyWithIV(key, key.size(), iv, IV_SIZE);
-  try {
-    FileSource(std::cin, true,
-        new AuthenticatedDecryptionFilter(
-            d, new FileSink(std::cout),
-            AuthenticatedDecryptionFilter::DEFAULT_FLAGS, 12));
-  }
-  catch (HashVerificationFilter::HashVerificationFailed er) {
+  AuthenticatedDecryptionFilter adf(
+      d, new FileSink(std::cout),
+      AuthenticatedDecryptionFilter::MAC_AT_END, 12);
+  FileSource(std::cin, true, new Redirector(adf));
+
+  if (!adf.GetLastResult()) {
     std::cerr << "[muzzle] Verification Failed.";
     exit(EXIT_FAILURE);
   }
