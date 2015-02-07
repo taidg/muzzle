@@ -52,8 +52,8 @@ enum Mode {
 
 void printUsage(FILE* stream, int exit_code);
 void getPass(char* pass);
-void encrypt(FILE* input_filename, FILE* output_filename);
-void decrypt(FILE* input_filename, FILE* output_filename);
+void encrypt(char* password, FILE* input_filename, FILE* output_filename);
+void decrypt(char* password, FILE* input_filename, FILE* output_filename);
 
 int main(int argc, const char* argv[]) {
   // Check gcrypt library version
@@ -78,20 +78,24 @@ int main(int argc, const char* argv[]) {
   int next_option;
 
   // A string listing valid short options letters.
-  const char* const short_options = "deho:";
+  const char* const short_options = "deho:p:";
   // An array describing long options.
   const struct option long_options[] = {
-    { "decrypt",   0, NULL, 'd' },
-    { "encrypt",   0, NULL, 'e' },
-    { "output",    1, NULL, 'o' },
-    { "help",      0, NULL, 'h' },
-    { NULL,        0, NULL,  0  }
+    { "decrypt",    0, NULL, 'd' },
+    { "encrypt",    0, NULL, 'e' },
+    { "output",     1, NULL, 'o' },
+    { "password",   1, NULL, 'p' },
+    { "help",       0, NULL, 'h' },
+    { NULL,         0, NULL,  0  }
   };
 
   // The name of the file to recieve output or NULL for standard out
   const char* output_filename = NULL;
   // The name of the file to retrieve input or NULL for standard in
   const char* input_filename = NULL;
+
+  // Password
+  char* pass = NULL;
 
   // Encryption mode set, set by default, false implies DecryptionMode
   Mode mode = kNone;
@@ -116,6 +120,10 @@ int main(int argc, const char* argv[]) {
 
       case 'o': // -o or --output
         output_filename = optarg;
+        break;
+
+      case 'p': // -p or --password
+        pass = optarg;
         break;
 
       case '?': // Invalid option
@@ -147,14 +155,21 @@ int main(int argc, const char* argv[]) {
   }
   assert(outFile != NULL);
 
+  // Set password if not set
+  if (pass == NULL) {
+    pass = new char[MAX_PASS_SIZE];
+    getPass(pass);
+  }
+  assert(pass != NULL);
+
   switch (mode) {
     case kNone:
       break;
     case kEncryption:
-      encrypt(inFile, outFile);
+      encrypt(pass, inFile, outFile);
       break;
     case kDecryption: 
-      decrypt(inFile, outFile);
+      decrypt(pass, inFile, outFile);
       break;
   }
 }
@@ -198,40 +213,32 @@ void getPass(char *pass) {
   tcsetattr(tty, TCSANOW, &tcOrig);
 }
 
-void encrypt(FILE* input, FILE* output) {
-  char pass[MAX_PASS_SIZE];
-  getPass(pass);
-
+void encrypt(char* pass, FILE* input, FILE* output) {
   // Generate IV and write to standard out
-  AutoSeededRandomPool rng;
   byte iv[IV_SIZE];
-  rng.GenerateBlock(iv, IV_SIZE);
+  gcry_create_nonce(iv, IV_SIZE);
   fwrite(reinterpret_cast<char*>(iv),1, IV_SIZE, output);
 
-  // Create key by hashing IV and password
-  SHA256 hash;
-  SecByteBlock key(0x00, AES::DEFAULT_KEYLENGTH);
-  HashFilter hf(hash, new ArraySink(key, AES::DEFAULT_KEYLENGTH));
-  hf.Put(iv, IV_SIZE);
-  hf.Put(reinterpret_cast<byte*>(pass), strlen(pass));
-  hf.MessageEnd();
+  //Create key by hashing IV and password (libgcrypt)
+  gcry_md_hd_t hd;
+  gcry_md_open(&hd, GCRY_MD_SHA256, GCRY_MD_FLAG_SECURE);
+
+  gcry_md_write(hd, iv, IV_SIZE);
+  gcry_md_write(hd, pass, strlen(pass));
 
   // Wipe passphrase from memory
   memset(pass, 0, strlen(pass));
 
   // Pipe from standard in, encrypt, and pipe to standard out
   GCM<AES>::Encryption e;
-  e.SetKeyWithIV(key, key.size(), iv, IV_SIZE);
+  e.SetKeyWithIV( gcry_md_read(hd, GCRY_MD_SHA256), AES::DEFAULT_KEYLENGTH, iv, IV_SIZE);
 
   FileSource(
       std::cin, true,
       new AuthenticatedEncryptionFilter(e, new FileSink(std::cout), false, 12));
 }
 
-void decrypt(FILE* input_filename, FILE* output_filename) {
-  char pass[MAX_PASS_SIZE];
-  getPass(pass);
-
+void decrypt(char* pass, FILE* input_filename, FILE* output_filename) {
   // Retrieve IV from standard in
   byte iv[IV_SIZE];
   FileSource fs(std::cin, false, new ArraySink(iv, IV_SIZE));
