@@ -13,6 +13,7 @@
  */
 
 #include <fcntl.h>
+#include <getopt.h>
 #include <termios.h>
 #include <unistd.h>
 #include <iostream>
@@ -35,46 +36,106 @@ using CryptoPP::Redirector;
 using CryptoPP::SHA256;
 using CryptoPP::SecByteBlock;
 
+/* The name of this program. */
+const char* program_name;
+
 const int MAX_PASS_SIZE = 256;
 const int IV_SIZE = AES::BLOCKSIZE * 16;
 
-void printUsage();
+void printUsage(FILE* stream, int exit_code);
 void getPass(char *pass);
-void encryptStdIn();
-void decryptStdIn();
+void encrypt(FILE* input_filename, FILE* output_filename);
+void decrypt(FILE* input_filename, FILE* output_filename);
 
 int main(int argc, const char* argv[]) {
-  if (argc < 2) {
-    printUsage();
-    return EXIT_FAILURE;
-  }
+  int next_option;
 
-  if (!strcmp(argv[1], "-e") || !strcmp(argv[1], "--encrypt")) {
-    encryptStdIn();
-  } else if (!strcmp(argv[1], "-d") || !strcmp(argv[1], "--decrypt")) {
-    decryptStdIn();
-  } else if (!strcmp(argv[1], "-h") || !strcmp(argv[1], "--help")) {
-    printUsage();
-    return EXIT_SUCCESS;
+  // A string listing valid short options letters.
+  const char* const short_options = "ehd";
+  // An array describing long options.
+  const struct option long_options[] = {
+    { "help",    0, NULL, 'h' },
+    { "encrypt", 0, NULL, 'e' },
+    { "decrypt", 0, NULL, 'd' },
+    { NULL,      0, NULL,  0  }
+  };
+
+  // The name of the file to recieve output or NULL for standard out
+  const char* output_filename = NULL;
+  // The name of the file to retrieve input or NULL for standard in
+  const char* input_filename = NULL;
+
+  // Encryption mode set, set by default, false implies DecryptionMode
+  bool encryptMode = true;
+
+  // Remember the name of the program to incorporate in messages.
+  program_name = argv[0];
+
+  do {
+    next_option = getopt_long(argc, const_cast<char* const*>(argv),
+                              short_options, long_options, NULL);
+    switch (next_option) {
+      case 'h': // -h or --help
+        printUsage(stdout, EXIT_SUCCESS);
+
+      case 'e': // -e or --encrypt
+        encryptMode = true;
+        break;
+
+      case 'd': // -d or --decrypt
+        encryptMode = false;
+        break;
+
+      case '?': // Invalid option
+        printUsage(stderr, EXIT_FAILURE);
+
+      case -1: // Done with options
+        break;
+
+      default: // Unexpected
+        abort();
+    }
+  } while (next_option != -1);
+
+  // Set input stream
+  FILE* inFile = NULL;
+  if (input_filename == NULL) {
+    inFile = stdin;
   } else {
-    printUsage();
-    return EXIT_FAILURE;
+    inFile = fopen(input_filename, "r");
   }
-  return EXIT_SUCCESS;
+  assert(inFile != NULL);
+
+  // Set output stream
+  FILE* outFile = NULL;
+  if (output_filename == NULL) {
+    outFile = stdout;
+  } else {
+    outFile = fopen(output_filename, "w");
+  }
+  assert(outFile != NULL);
+
+  if (encryptMode) {
+    encrypt(inFile, outFile);
+  } else {
+    decrypt(inFile, outFile);
+  }
 }
 
-void printUsage() {
-  std::cerr << "Usage: muzzle [OPTION]" <<std::endl
-            << "  -e, --encrypt      encrypt" <<std::endl
-            << "  -d, --decrypt      decrypt" <<std::endl
-            << "  -h, --help         give this help" <<std::endl;
+void printUsage(FILE* stream, int exit_code) {
+  fprintf(stream, "Usage: %s options\n", program_name);
+  fprintf(stream,
+          "  -h  --help        give this help\n"
+          "  -e  --encrypt     encrypt\n"
+          "  -d  --decrypt     decrypt\n");
+  exit(exit_code);
 }
 
 void getPass(char *pass) {
   // Open terminal
   int tty = open("/dev/tty", O_RDWR | O_APPEND);
   if(tty == -1) {
-    std::cerr << "[muzzle] Could not open tty.";
+    fprintf(stderr, "[%s] Could not open tty.", program_name);
     exit(EXIT_FAILURE);
   }
 
@@ -90,7 +151,7 @@ void getPass(char *pass) {
   tcsetattr(tty, TCSANOW, &tcNoEcho);
 
   // Get null-terminated password from terminal
-  write(tty, "[muzzle] Password: ", 19);
+  fprintf(stderr, "[%s] Password: ", program_name);
   int bytesRead = read(tty, pass, MAX_PASS_SIZE);
   assert(bytesRead > 0);
   pass[bytesRead - 1 ] = '\0';
@@ -99,7 +160,7 @@ void getPass(char *pass) {
   tcsetattr(tty, TCSANOW, &tcOrig);
 }
 
-void encryptStdIn() {
+void encrypt(FILE* input, FILE* output) {
   char pass[MAX_PASS_SIZE];
   getPass(pass);
 
@@ -107,7 +168,7 @@ void encryptStdIn() {
   AutoSeededRandomPool rng;
   byte iv[IV_SIZE];
   rng.GenerateBlock(iv, IV_SIZE);
-  std::cout.write(reinterpret_cast<char*>(iv), IV_SIZE);
+  fwrite(reinterpret_cast<char*>(iv),1, IV_SIZE, output);
 
   // Create key by hashing IV and password
   SHA256 hash;
@@ -128,7 +189,7 @@ void encryptStdIn() {
       new AuthenticatedEncryptionFilter(e, new FileSink(std::cout), false, 12));
 }
 
-void decryptStdIn() {
+void decrypt(FILE* input_filename, FILE* output_filename) {
   char pass[MAX_PASS_SIZE];
   getPass(pass);
 
@@ -158,7 +219,7 @@ void decryptStdIn() {
   FileSource(std::cin, true, new Redirector(adf));
 
   if (!adf.GetLastResult()) {
-    std::cerr << "[muzzle] Verification Failed.";
+    fprintf(stderr, "[%s] Verification Failed.", program_name);
     exit(EXIT_FAILURE);
   }
 }
