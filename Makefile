@@ -4,7 +4,7 @@ FLAGS=-Werror -Wall -Wfatal-errors
 
 all: muzzle
 
-muzzle.o: muzzle.cpp
+muzzle.o: muzzle.cc
 	$(CC) $(FLAGS) -c $< $(LIBS)
 
 muzzle: muzzle.o
