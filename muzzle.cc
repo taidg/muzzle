@@ -18,6 +18,8 @@
 #include <unistd.h>
 #include <iostream>
 
+#include <gcrypt.h>
+
 #include <crypto++/files.h>
 #include <crypto++/gcm.h>
 #include <crypto++/osrng.h>
@@ -42,22 +44,48 @@ const char* program_name;
 const int MAX_PASS_SIZE = 256;
 const int IV_SIZE = AES::BLOCKSIZE * 16;
 
+enum Mode {
+  kNone = 0,
+  kEncryption,
+  kDecryption,
+};
+
 void printUsage(FILE* stream, int exit_code);
-void getPass(char *pass);
+void getPass(char* pass);
 void encrypt(FILE* input_filename, FILE* output_filename);
 void decrypt(FILE* input_filename, FILE* output_filename);
 
 int main(int argc, const char* argv[]) {
+  // Check gcrypt library version
+  // MUST BE CALLED BEFORE LIBRARY IS USED
+  if (!gcry_check_version(GCRYPT_VERSION)) {
+    fprintf(stderr, "[%s] libgcrypt version mismatch\n", program_name);
+    exit(EXIT_FAILURE);
+  }
+  
+  // Supress warnings until after Secure Memory Allocation
+  gcry_control(GCRYCTL_SUSPEND_SECMEM_WARN);
+
+  // Allocate a pool of 16k secure memory.
+  gcry_control(GCRYCTL_INIT_SECMEM, 16384, 0);
+
+  // Allow warnings about Secure Memory again
+  gcry_control(GCRYCTL_SUSPEND_SECMEM_WARN);
+
+  // Tell libgcrypt that initialization has completed
+  gcry_control(GCRYCTL_INITIALIZATION_FINISHED, 0);
+
   int next_option;
 
   // A string listing valid short options letters.
-  const char* const short_options = "ehd";
+  const char* const short_options = "deho:";
   // An array describing long options.
   const struct option long_options[] = {
-    { "help",    0, NULL, 'h' },
-    { "encrypt", 0, NULL, 'e' },
-    { "decrypt", 0, NULL, 'd' },
-    { NULL,      0, NULL,  0  }
+    { "decrypt",   0, NULL, 'd' },
+    { "encrypt",   0, NULL, 'e' },
+    { "output",    1, NULL, 'o' },
+    { "help",      0, NULL, 'h' },
+    { NULL,        0, NULL,  0  }
   };
 
   // The name of the file to recieve output or NULL for standard out
@@ -66,7 +94,7 @@ int main(int argc, const char* argv[]) {
   const char* input_filename = NULL;
 
   // Encryption mode set, set by default, false implies DecryptionMode
-  bool encryptMode = true;
+  Mode mode = kNone;
 
   // Remember the name of the program to incorporate in messages.
   program_name = argv[0];
@@ -79,11 +107,15 @@ int main(int argc, const char* argv[]) {
         printUsage(stdout, EXIT_SUCCESS);
 
       case 'e': // -e or --encrypt
-        encryptMode = true;
+        mode = kEncryption;
         break;
 
       case 'd': // -d or --decrypt
-        encryptMode = false;
+        mode = kDecryption;
+        break;
+
+      case 'o': // -o or --output
+        output_filename = optarg;
         break;
 
       case '?': // Invalid option
@@ -115,19 +147,25 @@ int main(int argc, const char* argv[]) {
   }
   assert(outFile != NULL);
 
-  if (encryptMode) {
-    encrypt(inFile, outFile);
-  } else {
-    decrypt(inFile, outFile);
+  switch (mode) {
+    case kNone:
+      break;
+    case kEncryption:
+      encrypt(inFile, outFile);
+      break;
+    case kDecryption: 
+      decrypt(inFile, outFile);
+      break;
   }
 }
 
 void printUsage(FILE* stream, int exit_code) {
-  fprintf(stream, "Usage: %s options\n", program_name);
+  fprintf(stream, "Usage: %s options [file]\n", program_name);
   fprintf(stream,
-          "  -h  --help        give this help\n"
-          "  -e  --encrypt     encrypt\n"
-          "  -d  --decrypt     decrypt\n");
+          "  -h  --help           give this help\n"
+          "  -e  --encrypt        encrypt\n"
+          "  -d  --decrypt        decrypt\n"
+          "  -o  --output FILE    set output file\n");
   exit(exit_code);
 }
 
@@ -184,6 +222,7 @@ void encrypt(FILE* input, FILE* output) {
   // Pipe from standard in, encrypt, and pipe to standard out
   GCM<AES>::Encryption e;
   e.SetKeyWithIV(key, key.size(), iv, IV_SIZE);
+
   FileSource(
       std::cin, true,
       new AuthenticatedEncryptionFilter(e, new FileSink(std::cout), false, 12));
