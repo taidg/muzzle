@@ -215,9 +215,8 @@ void getPass(char *pass) {
 
 void encrypt(char* pass, FILE* input, FILE* output) {
   // Generate IV and write to standard out
-  AutoSeededrandomPool rng;
   byte iv[IV_SIZE];
-  rng.GenerateBlock(iv, IV_SIZE);
+  gcry_create_nonce(iv, IV_SIZE);
   fwrite(reinterpret_cast<char*>(iv),1, IV_SIZE, output);
 
   // Create key by hashing IV and password
