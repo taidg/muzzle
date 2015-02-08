@@ -220,19 +220,19 @@ void encrypt(char* pass, FILE* input, FILE* output) {
   fwrite(reinterpret_cast<char*>(iv),1, IV_SIZE, output);
 
   // Create key by hashing IV and password
-  SHA256 hash;
-  SecByteBlock key(0x00, AES::DEFAULT_KEYLENGTH);
-  HashFilter hf(hash, new ArraySink(key, AES::DEFAULT_KEYLENGTH));
-  hf.Put(iv, IV_SIZE);
-  hf.Put(reinterpret_cast<byte*>(pass), strlen(pass));
-  hf.MessageEnd();
+  int hashAlgo = GCRY_MD_SHA256;
+  gcry_md_hd_t hashHandler;
+  gcry_md_open(&hashHandler, hashAlgo, GCRY_MD_FLAG_SECURE);
+  gcry_md_write(hashHandler, iv, IV_SIZE);
+  gcry_md_write(hashHandler, pass, strlen(pass));
+  byte* keygc = gcry_md_read(hashHandler, hashAlgo);
 
   // Wipe passphrase from memory
   memset(pass, 0, strlen(pass));
 
   // Pipe from standard in, encrypt, and pipe to standard out
   GCM<AES>::Encryption e;
-  e.SetKeyWithIV(key, key.size(), iv, IV_SIZE);
+  e.SetKeyWithIV(keygc, AES::DEFAULT_KEYLENGTH, iv, IV_SIZE);
   FileSource(
   std::cin, true,
   new AuthenticatedEncryptionFilter(e, new FileSink(std::cout), false, 12));
