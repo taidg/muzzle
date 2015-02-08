@@ -1,6 +1,6 @@
 CC=g++
 LIBS=-lcrypto++ -lgcrypt
-FLAGS=-Werror -Wall -Wfatal-errors
+FLAGS=-Werror -Wall -Wfatal-errors -std=c++11
 
 all: muzzle
 

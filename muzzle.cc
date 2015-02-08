@@ -215,27 +215,28 @@ void getPass(char *pass) {
 
 void encrypt(char* pass, FILE* input, FILE* output) {
   // Generate IV and write to standard out
+  AutoSeededrandomPool rng;
   byte iv[IV_SIZE];
-  gcry_create_nonce(iv, IV_SIZE);
+  rng.GenerateBlock(iv, IV_SIZE);
   fwrite(reinterpret_cast<char*>(iv),1, IV_SIZE, output);
 
-  //Create key by hashing IV and password (libgcrypt)
-  gcry_md_hd_t hd;
-  gcry_md_open(&hd, GCRY_MD_SHA256, GCRY_MD_FLAG_SECURE);
-
-  gcry_md_write(hd, iv, IV_SIZE);
-  gcry_md_write(hd, pass, strlen(pass));
+  // Create key by hashing IV and password
+  SHA256 hash;
+  SecByteBlock key(0x00, AES::DEFAULT_KEYLENGTH);
+  HashFilter hf(hash, new ArraySink(key, AES::DEFAULT_KEYLENGTH));
+  hf.Put(iv, IV_SIZE);
+  hf.Put(reinterpret_cast<byte*>(pass), strlen(pass));
+  hf.MessageEnd();
 
   // Wipe passphrase from memory
   memset(pass, 0, strlen(pass));
 
   // Pipe from standard in, encrypt, and pipe to standard out
   GCM<AES>::Encryption e;
-  e.SetKeyWithIV( gcry_md_read(hd, GCRY_MD_SHA256), AES::DEFAULT_KEYLENGTH, iv, IV_SIZE);
-
+  e.SetKeyWithIV(key, key.size(), iv, IV_SIZE);
   FileSource(
-      std::cin, true,
-      new AuthenticatedEncryptionFilter(e, new FileSink(std::cout), false, 12));
+  std::cin, true,
+  new AuthenticatedEncryptionFilter(e, new FileSink(std::cout), false, 12));
 }
 
 void decrypt(char* pass, FILE* input_filename, FILE* output_filename) {
