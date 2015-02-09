@@ -11,10 +11,11 @@ Run make.
 
 ## Usage
     muzzle options [file]
-      -h, --help          give this help
-      -e, --encrypt       encrypt
-      -d, --decrypt       decrypt
-      -o, --output FILE   set output file
+      -h, --help           give this help
+      -e, --encrypt        encrypt
+      -d, --decrypt        decrypt
+      -o, --output FILE    set output file
+      -p, --password PASS  set password
 
 ## Example
 To encrypt a compress and encrypt a file using xz and muzzle run:

@@ -62,19 +62,6 @@ int main(int argc, const char* argv[]) {
   // Tell libgcrypt that initialization has completed
   gcry_control(GCRYCTL_INITIALIZATION_FINISHED, 0);
 
-  int next_option;
-
-  // A string listing valid short options letters.
-  const char* const short_options = "deho:p:";
-  // An array describing long options.
-  const struct option long_options[] = {
-    { "decrypt",    0, NULL, 'd' },
-    { "encrypt",    0, NULL, 'e' },
-    { "output",     1, NULL, 'o' },
-    { "password",   1, NULL, 'p' },
-    { "help",       0, NULL, 'h' },
-    { NULL,         0, NULL,  0  }
-  };
 
   // The name of the file to recieve output or NULL for standard out
   const char* output_filename = NULL;
@@ -90,6 +77,19 @@ int main(int argc, const char* argv[]) {
   // Remember the name of the program to incorporate in messages.
   program_name = argv[0];
 
+  // A string listing valid short options letters.
+  const char* const short_options = "deho:p:";
+  // An array describing long options.
+  const struct option long_options[] = {
+    { "decrypt",    0, NULL, 'd' },
+    { "encrypt",    0, NULL, 'e' },
+    { "output",     1, NULL, 'o' },
+    { "password",   1, NULL, 'p' },
+    { "help",       0, NULL, 'h' },
+    { NULL,         0, NULL,  0  }
+  };
+
+  int next_option;
   do {
     next_option = getopt_long(argc, const_cast<char* const*>(argv),
                               short_options, long_options, NULL);
@@ -171,7 +171,8 @@ void printUsage(FILE* stream, int exit_code) {
           "  -h  --help           give this help\n"
           "  -e  --encrypt        encrypt\n"
           "  -d  --decrypt        decrypt\n"
-          "  -o  --output FILE    set output file\n");
+          "  -o  --output FILE    set output file\n"
+          "  -p  --password PASS  set password\n");
   exit(exit_code);
 }
 
