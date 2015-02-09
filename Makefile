@@ -1,14 +1,17 @@
 CC=g++
-LIBS=-lcrypto++ -lgcrypt
-FLAGS=-Werror -std=c++11
+LIBS=-lgcrypt
+CXXFLAGS=-std=c++11
 
 all: muzzle
 
+debug: CXXFLAGS += -DDEBUG -g
+debug: muzzle
+
 muzzle.o: muzzle.cc
-	$(CC) $(FLAGS) -c $< $(LIBS)
+	$(CC) $(CXXFLAGS) -c $< $(LIBS)
 
 muzzle: muzzle.o
-	$(CC) $(FLAGS) -o $@ $< $(LIBS)
+	$(CC) $(CXXFLAGS) -o $@ $< $(LIBS)
 
 .PHONY: clean
 

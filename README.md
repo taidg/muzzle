@@ -5,15 +5,16 @@ muzzle uses AES encryption in GCM Block Mode to provide authenticated encryption
 
 ## Building
 Required libraries:
-* crypto++
+* libgcrypt
 
 Run make.
 
 ## Usage
-    muzzle [OPTION]
-      -e, --encrypt    encrypt
-      -d, --decrypt    decrypt
-      -h, --help       show help
+    muzzle options [file]
+      -h, --help          give this help
+      -e, --encrypt       encrypt
+      -d, --decrypt       decrypt
+      -o, --output FILE   set output file
 
 ## Example
 To encrypt a compress and encrypt a file using xz and muzzle run:

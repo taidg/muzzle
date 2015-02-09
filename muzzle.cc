@@ -16,33 +16,20 @@
 #include <getopt.h>
 #include <termios.h>
 #include <unistd.h>
-#include <iostream>
+
+#include <assert.h>
+#include <stdio.h>
 
 #include <gcrypt.h>
 
-#include <crypto++/files.h>
-#include <crypto++/gcm.h>
-#include <crypto++/osrng.h>
-
-using CryptoPP::AES;
-using CryptoPP::ArraySink;
-using CryptoPP::AuthenticatedDecryptionFilter;
-using CryptoPP::AuthenticatedEncryptionFilter;
-using CryptoPP::AutoSeededRandomPool;
-using CryptoPP::FileSink;
-using CryptoPP::FileSource;
-using CryptoPP::GCM;
-using CryptoPP::HashFilter;
-using CryptoPP::HashVerificationFilter;
-using CryptoPP::Redirector;
-using CryptoPP::SHA256;
-using CryptoPP::SecByteBlock;
+typedef unsigned char byte;
 
 /* The name of this program. */
 const char* program_name;
 
 const int MAX_PASS_SIZE = 256;
-const int IV_SIZE = AES::BLOCKSIZE * 16;
+const int IV_SIZE = 12;
+const int TAG_SIZE = 16;
 
 enum Mode {
   kNone = 0,
@@ -137,6 +124,10 @@ int main(int argc, const char* argv[]) {
     }
   } while (next_option != -1);
 
+  if (optind < argc){
+    input_filename = argv[optind];
+  }
+
   // Set input stream
   FILE* inFile = NULL;
   if (input_filename == NULL) {
@@ -230,43 +221,82 @@ void encrypt(char* pass, FILE* input, FILE* output) {
   // Wipe passphrase from memory
   memset(pass, 0, strlen(pass));
 
-  // Pipe from standard in, encrypt, and pipe to standard out
-  GCM<AES>::Encryption e;
-  e.SetKeyWithIV(keygc, AES::DEFAULT_KEYLENGTH, iv, IV_SIZE);
-  FileSource(
-  std::cin, true,
-  new AuthenticatedEncryptionFilter(e, new FileSink(std::cout), false, 12));
+  int blockAlgo = GCRY_CIPHER_AES128;
+  int blockMode = GCRY_CIPHER_MODE_GCM;
+  int blockSize = gcry_cipher_get_algo_keylen(blockAlgo);
+  gcry_cipher_hd_t encHandler;
+
+  gcry_cipher_open(&encHandler, blockAlgo, blockMode, GCRY_CIPHER_SECURE);
+  gcry_cipher_setkey(encHandler, keygc, blockSize);
+  gcry_cipher_setiv(encHandler, iv, IV_SIZE);
+
+  byte *buf = new byte[blockSize*16];
+  byte *outbuf = new byte[blockSize*16];
+  while (!feof(input)) {
+    int bytesRead = fread(buf, 1, blockSize*16, input);
+    gcry_cipher_encrypt(encHandler, outbuf, bytesRead, buf, bytesRead);
+    fwrite(outbuf, 1, bytesRead, output);
+  }
+  gcry_cipher_gettag(encHandler, outbuf, TAG_SIZE);
+  fwrite(outbuf, 1, TAG_SIZE, output);
 }
 
-void decrypt(char* pass, FILE* input_filename, FILE* output_filename) {
+void decrypt(char* pass, FILE* input, FILE* output) {
   // Retrieve IV from standard in
   byte iv[IV_SIZE];
-  FileSource fs(std::cin, false, new ArraySink(iv, IV_SIZE));
-  fs.Pump(IV_SIZE);
+  fread(iv, 1, IV_SIZE, input);
 
   // Create key by hashing IV and password
-  SHA256 hash;
-  SecByteBlock key(0x00, AES::DEFAULT_KEYLENGTH);
-  HashFilter hf(hash, new ArraySink(key, AES::DEFAULT_KEYLENGTH));
-  hf.Put(iv, IV_SIZE);
-  hf.Put(reinterpret_cast<byte*>(pass), strlen(pass));
-  hf.MessageEnd();
+  int hashAlgo = GCRY_MD_SHA256;
+  gcry_md_hd_t hashHandler;
+  gcry_md_open(&hashHandler, hashAlgo, GCRY_MD_FLAG_SECURE);
+  gcry_md_write(hashHandler, iv, IV_SIZE);
+  gcry_md_write(hashHandler, pass, strlen(pass));
+  byte* keygc = gcry_md_read(hashHandler, hashAlgo);
 
   // Wipe passphrase from memory
   memset(pass, 0, strlen(pass));
 
   // Decrypt standard in to standard out
   // Error if Authentication fails
-  GCM<AES>::Decryption d;
-  d.SetKeyWithIV(key, key.size(), iv, IV_SIZE);
-  AuthenticatedDecryptionFilter adf(
-      d, new FileSink(std::cout),
-      AuthenticatedDecryptionFilter::MAC_AT_END, 12);
-  FileSource(std::cin, true, new Redirector(adf));
+  
+  int blockAlgo = GCRY_CIPHER_AES128;
+  int blockMode = GCRY_CIPHER_MODE_GCM;
+  int blockSize = gcry_cipher_get_algo_keylen(blockAlgo);
+  gcry_cipher_hd_t encHandler;
 
-  if (!adf.GetLastResult()) {
-    fprintf(stderr, "[%s] Verification Failed.", program_name);
-    exit(EXIT_FAILURE);
+  gcry_cipher_open(&encHandler, blockAlgo, blockMode, GCRY_CIPHER_SECURE);
+  gcry_cipher_setkey(encHandler, keygc, blockSize);
+  gcry_cipher_setiv(encHandler, iv, IV_SIZE);
+
+  byte *buf = new byte[blockSize*16 + TAG_SIZE];
+  byte *bufHead = buf;
+  byte *outbuf = new byte[blockSize*16];
+  while (!feof(input)) {
+    // read from input
+    int bytesRead = fread(bufHead, 1, blockSize*16, input);
+    
+    // leave the last TAG_SIZE bytes at bufHead for tag
+    // decrypt and output the rest
+    bufHead += bytesRead - TAG_SIZE;
+    if (bufHead < buf) {
+      fprintf(stderr, "[%s] Insufficent data: Cannot decrypt.\n", program_name);
+      exit(EXIT_FAILURE);
+    }
+    gcry_cipher_decrypt(encHandler, outbuf, bufHead - buf,
+                        buf, bufHead - buf);
+    fwrite(outbuf, 1, bufHead - buf, output);
+
+    // copy bytes to front of buf
+    memcpy(buf, bufHead, TAG_SIZE);
+
+    // set bufHead to end of preserved data;
+    bufHead = buf + TAG_SIZE;
+  }
+
+  gcry_cipher_gettag(encHandler, outbuf, TAG_SIZE);
+  if (memcmp(buf, outbuf, TAG_SIZE)) {
+      fprintf(stderr, "[%s] Data Verification Failed.", program_name);
   }
 }
 
