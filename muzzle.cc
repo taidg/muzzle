@@ -124,6 +124,10 @@ int main(int argc, const char* argv[]) {
     }
   } while (next_option != -1);
 
+  if (mode == kNone) {
+      printUsage(stderr, EXIT_FAILURE);
+  }
+
   if (optind < argc){
     input_filename = argv[optind];
   }
@@ -154,13 +158,13 @@ int main(int argc, const char* argv[]) {
   assert(pass != NULL);
 
   switch (mode) {
-    case kNone:
-      break;
     case kEncryption:
       encrypt(pass, inFile, outFile);
       break;
     case kDecryption: 
       decrypt(pass, inFile, outFile);
+      break;
+    default:
       break;
   }
 }
