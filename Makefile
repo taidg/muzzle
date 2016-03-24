@@ -1,6 +1,7 @@
 CC=gcc
 LIBS=-lgcrypt
-CFLAGS=-Wfatal-errors
+CFLAGS=
+PREFIX=/usr/local
 
 all: muzzle
 
@@ -13,8 +14,10 @@ muzzle.o: muzzle.c
 muzzle: muzzle.o
 	$(CC) $(CFLAGS) -o $@ $< $(LIBS)
 
-.PHONY: clean
+install: muzzle
+	install -D -m 0755 muzzle $(DESTDIR)$(PREFIX)/bin/muzzle
 
 clean:
 	rm *.o muzzle
 
+.PHONY: clean install
