@@ -27,15 +27,13 @@ typedef unsigned char byte;
 /* The name of this program. */
 const char* program_name;
 
-const int MAX_PASS_SIZE = 256;
+const int MAX_PASS_SIZE= 256;
 const int IV_SIZE = 12;
 const int TAG_SIZE = 16;
 
-enum Mode {
-  kNone = 0,
-  kEncryption,
-  kDecryption,
-};
+#define MODE_NONE 0
+#define MODE_ENCRYPT 1
+#define MODE_DECRYPT 2
 
 void printUsage(FILE* stream, int exit_code);
 void getPass(char* pass);
@@ -72,7 +70,7 @@ int main(int argc, const char* argv[]) {
   char* pass = NULL;
 
   // Encryption mode set, set by default, false implies DecryptionMode
-  Mode mode = kNone;
+  int mode = MODE_NONE;
 
   // Remember the name of the program to incorporate in messages.
   program_name = argv[0];
@@ -91,18 +89,17 @@ int main(int argc, const char* argv[]) {
 
   int next_option;
   do {
-    next_option = getopt_long(argc, const_cast<char* const*>(argv),
-                              short_options, long_options, NULL);
+    next_option = getopt_long(argc, (char * const*) argv, short_options, long_options, NULL);
     switch (next_option) {
       case 'h': // -h or --help
         printUsage(stdout, EXIT_SUCCESS);
 
       case 'e': // -e or --encrypt
-        mode = kEncryption;
+        mode = MODE_ENCRYPT;
         break;
 
       case 'd': // -d or --decrypt
-        mode = kDecryption;
+        mode = MODE_DECRYPT;
         break;
 
       case 'o': // -o or --output
@@ -124,7 +121,7 @@ int main(int argc, const char* argv[]) {
     }
   } while (next_option != -1);
 
-  if (mode == kNone) {
+  if (mode == MODE_NONE) {
       printUsage(stderr, EXIT_FAILURE);
   }
 
@@ -152,16 +149,16 @@ int main(int argc, const char* argv[]) {
 
   // Set password if not set
   if (pass == NULL) {
-    pass = new char[MAX_PASS_SIZE];
+    pass = malloc(MAX_PASS_SIZE);
     getPass(pass);
   }
   assert(pass != NULL);
 
   switch (mode) {
-    case kEncryption:
+    case MODE_ENCRYPT:
       encrypt(pass, inFile, outFile);
       break;
-    case kDecryption: 
+    case MODE_DECRYPT: 
       decrypt(pass, inFile, outFile);
       break;
     default:
@@ -213,7 +210,7 @@ void encrypt(char* pass, FILE* input, FILE* output) {
   // Generate IV and write to standard out
   byte iv[IV_SIZE];
   gcry_create_nonce(iv, IV_SIZE);
-  fwrite(reinterpret_cast<char*>(iv),1, IV_SIZE, output);
+  fwrite((char*) iv, 1, IV_SIZE, output);
 
   // Create key by hashing IV and password
   int hashAlgo = GCRY_MD_SHA256;
@@ -235,8 +232,8 @@ void encrypt(char* pass, FILE* input, FILE* output) {
   gcry_cipher_setkey(encHandler, keygc, blockSize);
   gcry_cipher_setiv(encHandler, iv, IV_SIZE);
 
-  byte *buf = new byte[blockSize*16];
-  byte *outbuf = new byte[blockSize*16];
+  byte *buf = malloc(blockSize*16);
+  byte *outbuf = malloc(blockSize*16);
   while (!feof(input)) {
     int bytesRead = fread(buf, 1, blockSize*16, input);
     gcry_cipher_encrypt(encHandler, outbuf, bytesRead, buf, bytesRead);
@@ -274,9 +271,9 @@ void decrypt(char* pass, FILE* input, FILE* output) {
   gcry_cipher_setkey(encHandler, keygc, blockSize);
   gcry_cipher_setiv(encHandler, iv, IV_SIZE);
 
-  byte *buf = new byte[blockSize*16 + TAG_SIZE];
+  byte *buf = malloc(blockSize*16 + TAG_SIZE);
   byte *bufHead = buf;
-  byte *outbuf = new byte[blockSize*16];
+  byte *outbuf = malloc(blockSize*16);
   while (!feof(input)) {
     // read from input
     int bytesRead = fread(bufHead, 1, blockSize*16, input);
