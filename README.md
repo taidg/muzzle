@@ -18,7 +18,7 @@ Run make.
       -p, --password PASS  set password
 
 ## Example
-To encrypt a compress and encrypt a file using xz and muzzle run:
+To compress and encrypt a file using xz and muzzle run:
 
     xz --compress - < myfile | muzzle --encrypt > myfile.xz.muz
 
